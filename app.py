@@ -1,43 +1,55 @@
 import streamlit as st
 from PIL import Image
-from google import genai       # Corrected modern import
+from google import genai
+from google.genai import types
 import json
 from fpdf import FPDF
+from pydantic import BaseModel
+from lged_knowledge import LGED_CONTEXT
 
-# 1. Page Configuration & API Setup
+# 1. Page Configuration & API Initialisation
 st.set_page_config(page_title="Infrastructure Assessor", page_icon="🏗️", layout="centered")
 
-# Force-inject the API key directly into the client instance
+# Secure Client Initialization via Streamlit Secrets
 client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
+# 2. Structured Output Schema Definition
+class AssessmentReport(BaseModel):
+    damage_type: str
+    severity: str
+    materials_needed: list[str]
+    estimated_repair_time: str
+
+# 3. PDF Report Generator Function
 def create_procurement_pdf(data):
     pdf = FPDF()
     pdf.add_page()
     
-    # Set Document Header (Simulating an official LGED/Government format)
+    # Header Section
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, "EMERGENCY PROCUREMENT & REQUISITION REPORT", ln=True, align="C")
     pdf.set_font("Arial", "", 10)
     pdf.cell(0, 5, "Generated via Post-Cyclone AI Infrastructure Assessor (SciBlitz 2026)", ln=True, align="C")
     pdf.ln(10)
     
-    # Metadata Block
+    # Section 1: Metrics
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "1. Disaster Impact Metrics", ln=True)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
     
     pdf.set_font("Arial", "", 11)
-    pdf.cell(50, 8, f"Damage Severity:", 0)
+    pdf.cell(50, 8, "Damage Severity:", 0)
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, 8, f"{data.get('severity', 'N/A')}", ln=True)
     
     pdf.set_font("Arial", "", 11)
-    pdf.cell(50, 8, f"Est. Repair Timeline:", 0)
+    pdf.cell(50, 8, "Est. Repair Timeline:", 0)
+    pdf.set_font("Arial", "B", 11)
     pdf.cell(0, 8, f"{data.get('estimated_repair_time', 'N/A')}", ln=True)
     pdf.ln(4)
     
-    # Technical Assessment
+    # Section 2: Assessment
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "2. Structural Engineering Assessment", ln=True)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
@@ -47,18 +59,16 @@ def create_procurement_pdf(data):
     pdf.multi_cell(0, 6, f"Failure Type Identified: {data.get('damage_type', 'N/A')}")
     pdf.ln(6)
     
-    # Bill of Materials Table
+    # Section 3: BOM Table
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "3. Required Emergency Materials (Bill of Materials)", ln=True)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(4)
     
-    # Table Header
     pdf.set_font("Arial", "B", 11)
     pdf.cell(15, 8, "Item", 1, 0, "C")
     pdf.cell(165, 8, "Material Description & Estimated Quantity", 1, 1, "L")
     
-    # Table Rows
     pdf.set_font("Arial", "", 11)
     for i, item in enumerate(data.get("materials_needed", []), 1):
         pdf.cell(15, 8, str(i), 1, 0, "C")
@@ -66,68 +76,98 @@ def create_procurement_pdf(data):
         
     pdf.ln(15)
     pdf.set_font("Arial", "I", 9)
-    pdf.cell(0, 5, "This is an automated engineering requisition generated for local government assessment.", ln=True, align="C")
+    pdf.cell(0, 5, "DISCLAIMER: AI-Generated Triage Estimate. Requires formal validation by LGED Executive Engineer.", ln=True, align="C")
     
-    # Output PDF as bytes
     return bytes(pdf.output())
-# 2. Header Section
+
+# 4. Main UI Architecture
 st.title("🏗️ Post-Cyclone Infrastructure Assessor")
 st.subheader("Automated Procurement Engine for a Flood-Resilient Bangladesh")
 st.divider()
 
-# 3. File Upload Interface
+# --- Contextual Grounding UI ---
+st.subheader("📍 Field Agent Context Data")
+st.write("Provide structural dimensions to calibrate the AI model's scale.")
+
+col1, col2 = st.columns(2)
+with col1:
+    gps_location = st.text_input("GPS Location (Lat/Long)", placeholder="e.g., 22.3569, 91.7832 (Chattogram)")
+    infra_type = st.selectbox("Infrastructure Type", ["RC Bridge", "Culvert", "LGED Office Building", "Coastal Embankment"])
+with col2:
+    est_span = st.number_input("Estimated Span/Area (sq meters)", min_value=1, value=50)
+    current_status = st.selectbox("Current Status", ["Active Collapse", "Stabilized", "Submerged"])
+
+st.divider()
+
+# ---> MAKE SURE THIS LINE ONLY APPEARS ONCE <---
 uploaded_file = st.file_uploader("Upload Infrastructure Damage Image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_column_width=True)
     
-    # 4. The System Prompt (The Brain)
-    system_instruction = """
-    You are an expert Bangladeshi civil engineer specializing in post-cyclone disaster recovery.
-    Analyze this image of damaged infrastructure. You MUST return your analysis STRICTLY as a JSON object with the following keys, and nothing else:
-    - "damage_type": A short technical description of the structural failure.
-    - "severity": Must be exactly "Low", "Medium", "High", or "Critical".
-    - "materials_needed": A list of specific raw materials needed for emergency repair.
-    - "estimated_repair_time": A short string estimating the time to repair.
-    Output only the raw JSON.
+    # ... (rest of your system_instruction code continues here)
+    
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    
+    system_instruction = f"""
+    You are a senior civil engineer at the LGED, Bangladesh, operating as a Rapid Triage Copilot.
+    CRITICAL: You must classify every image provided. Do not use 'Unknown'.
+
+    FIELD AGENT CONTEXT (USE THIS FOR SCALE):
+    - Location: {gps_location}
+    - Infrastructure Type: {infra_type}
+    - Estimated Affected Area/Span: {est_span} sq meters
+    - Current Status: {current_status}
+
+    KNOWLEDGE BASE GROUNDING:
+    {LGED_CONTEXT}
+
+    Task:
+    1. Identify the damage type from the KNOWLEDGE BASE. 
+    2. Assign Severity based on visual indicators.
+    3. Generate a Bill of Materials. YOU MUST USE THE 'Estimated Affected Area' ({est_span} sqm) to calculate realistic quantities of materials based on standard LGED ratios.
+    4. Estimate repair time based on typical Bangladesh site conditions.
+    
+    The 'estimated_repair_time' field must be a SINGLE clean string (e.g., '4-7 months').
     """
 
     if st.button("Run AI Damage Assessment", type="primary"):
-        with st.spinner("Analyzing structural integrity..."):
+        with st.spinner("Analyzing structural integrity with LGED grounding..."):
             try:
-                # Attempt 1: The Primary Flagship Model
+                # Primary Content Generation Call utilizing Structured Output Schemas
                 try:
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
-                        contents=[system_instruction, image]
+                        contents=[system_instruction, image],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=AssessmentReport,
+                        ),
                     )
-                # Attempt 2: The Fallback Route
                 except Exception as model_error:
+                    # Automatic Fallback Route for server congestion
                     if "503" in str(model_error) or "429" in str(model_error):
                         st.warning("Primary server congested. Routing to secure fallback model...")
                         response = client.models.generate_content(
-                            model='gemini-1.5-pro',
-                            contents=[system_instruction, image]
+                            model='gemini-2.5-pro',  # Upgraded to modern v2 target string
+                            contents=[system_instruction, image],
+                            config=types.GenerateContentConfig(
+                                response_mime_type="application/json",
+                                response_schema=AssessmentReport,
+                            ),
                         )
                     else:
-                        raise model_error # If it's a different error, let it fail normally
+                        raise model_error
                 
-                # Parse output
-                raw_text = response.text.strip()
-                if raw_text.startswith("```json"):
-                    raw_text = raw_text[7:-3].strip()
-                elif raw_text.startswith("```"):
-                    raw_text = raw_text[3:-3].strip()
-                    
-                ai_data = json.loads(raw_text)
+                # Zero string slicing required; response is guaranteed to conform to schema
+                ai_data = json.loads(response.text)
                 
                 st.success("Analysis Complete.")
-                
-
                 st.subheader("Structural Assessment Report")
                 
-                # Display the extracted data
                 col1, col2 = st.columns(2)
                 col1.metric("Damage Severity", ai_data.get("severity", "Unknown"))
                 col2.metric("Est. Repair Time", ai_data.get("estimated_repair_time", "Unknown"))
@@ -136,13 +176,12 @@ if uploaded_file is not None:
                 st.write("**Required Bill of Materials (BOM):**")
                 for item in ai_data.get("materials_needed", []):
                     st.write(f"- {item}")
-                # Generate the binary PDF stream from the session data
-                pdf_bytes = create_procurement_pdf(ai_data)
                 
+                # Document Automation Generation Sequence
+                pdf_bytes = create_procurement_pdf(ai_data)
                 st.divider()
                 st.subheader("📋 Document Automation")
                 
-                # Streamlit Native Download Button
                 st.download_button(
                     label="Download Official Procurement PDF",
                     data=pdf_bytes,
@@ -150,5 +189,6 @@ if uploaded_file is not None:
                     mime="application/pdf",
                     type="primary"
                 )
+                
             except Exception as e:
                 st.error(f"Agent Pipeline Failed: {e}")
