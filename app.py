@@ -265,7 +265,8 @@ with tab1:
                             33, text="Step 2: AI Visual Perception & Analysis..."
                         )
                         # Pass first image for AI assessment
-                        ai_data = ai_engine.analyze_image(images[0])
+                        with st.spinner('Triaging structural integrity via Gemini...'):
+                            ai_data = ai_engine.analyze_image(images[0])
                         st.session_state.assessment_count += 1
 
                         st.session_state.report_data = {
@@ -354,6 +355,7 @@ with tab1:
                     validated_data = AssessmentRecord(**data)
                     # Pass the validated, structured object to the database service
                     db_service.save_assessment(validated_data)
+                    st.toast("Requisition Cached Locally!", icon="✅")
                     st.success("Cached Locally! Ready for generation.")
                 except Exception as e:
                     st.error(f"Data validation failed: {e}")
@@ -395,6 +397,11 @@ with tab2:
             df[df["final_severity"].isin(["Critical", "Total Collapse"])]
         )
         col3.metric("Critical / Collapsed", critical_count)
+
+        st.subheader("Damage Severity Distribution")
+        severity_counts = df['final_severity'].value_counts().reset_index()
+        severity_counts.columns = ['Severity', 'Count']
+        st.bar_chart(severity_counts, x="Severity", y="Count", color="#006a4e", use_container_width=True)
 
         # Filters
         st.subheader("Filters")
@@ -450,4 +457,4 @@ with tab2:
                 st.success("Record deleted.")
                 st.rerun()
     else:
-        st.info("No records in database.")
+        st.info("📡 Awaiting Field Data Uplink. No offline records currently cached.")
