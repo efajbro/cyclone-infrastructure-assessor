@@ -3,7 +3,7 @@ class Config:
 
     DB_PATH = "lged_offline_sync.db"
     PRIMARY_MODEL = "gemini-2.5-flash"
-    FALLBACK_MODEL = "gemini-1.5-flash"
+    FALLBACK_MODEL = "gemini-2.0-flash"
     API_TIMEOUT = 30  # seconds
     MAX_IMAGE_SIZE_MB = 10
     RATE_LIMIT_ASSESSMENTS = 10

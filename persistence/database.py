@@ -60,7 +60,7 @@ class DatabaseService:
     def get_all_assessments(self) -> pd.DataFrame:
         conn = self.get_connection()
         df = pd.read_sql_query(
-            "SELECT hash_id, created_at, infra_type, final_severity, total_cost, sync_status FROM field_assessments",
+            "SELECT hash_id, created_at, updated_at, infra_type, final_severity, total_cost, sync_status FROM field_assessments",
             conn,
         )
         conn.close()

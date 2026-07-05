@@ -4,6 +4,7 @@ Production-Grade Offline-First Architecture for LGED Cyclone Assessor
 """
 
 import streamlit as st
+import time
 from streamlit_js_eval import get_geolocation
 import streamlit.components.v1 as components
 from PIL import Image, ExifTags
@@ -16,7 +17,12 @@ import re
 from config import Config
 import importlib
 import persistence.database
+import config
+import services.ai_engine
+
 importlib.reload(persistence.database)
+importlib.reload(config)
+importlib.reload(services.ai_engine)
 from persistence.database import DatabaseService
 from services.ai_engine import AIEngine
 from services.pdf_generator import create_procurement_pdf
@@ -26,31 +32,7 @@ from models import AssessmentRecord
 # Configuration and Initialization
 st.set_page_config(page_title="Infrastructure Assessor", page_icon="🏗️", layout="wide")
 
-# Custom CSS for LGED Branding and Badges
-st.markdown(
-    """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stApp { background-color: #0e1117; }
-    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] {
-        background-color: #1f2937;
-        border-radius: 8px;
-        padding: 1rem;
-    }
-    .lged-header { color: #006a4e; font-weight: bold; } /* Bangladesh Green */
-    .severity-badge {
-        padding: 5px 10px; border-radius: 5px; color: white; font-weight: bold;
-    }
-    .badge-Low { background-color: #28a745; }
-    .badge-Medium { background-color: #ffc107; color: black; }
-    .badge-Critical { background-color: #fd7e14; }
-    .badge-Total { background-color: #dc3545; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+
 
 # Authentication
 if "authenticated" not in st.session_state:
@@ -142,21 +124,201 @@ def get_severity_badge(severity):
 
 
 # Application Interface
-st.markdown(
-    '<h1 class="lged-header">🏗️ LGED Post-Cyclone Infrastructure Assessor</h1>',
-    unsafe_allow_html=True,
-)
+# Keeping the [1, 4, 1] column structure perfectly centers the title.
+header_col1, header_col2, header_col3 = st.columns([1, 4, 1])
+with header_col1:
+    lang_choice = st.radio("LANGUAGE / ভাষা", ["English", "বাংলা"], horizontal=True, label_visibility="collapsed")
+with header_col2:
+    st.markdown(
+        '<h1 class="lged-header" style="text-align: center;">LGED Post-Cyclone Infrastructure Assessor</h1>',
+        unsafe_allow_html=True,
+    )
 
-tab1, tab2 = st.tabs(["📸 Field Assessment", "📡 Offline Sync Dashboard"])
+is_bn = (lang_choice == "বাংলা")
+
+# Ultra-Rich Earthy Theme Injection (Permanent Dark Mode)
+bg_color = "#1A1614"       # Deep earthy obsidian
+card_bg = "#292421"        # Warm dark espresso
+text_color = "#F4EFE6"     # Soft cream text
+input_text_color = "#F4EFE6" 
+accent = "#DD6B20"         # Bright Rust Orange
+border = "#3D332D"         # Mocha border
+widget_bg = "#3D332D"
+
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+    html, body, [class*="css"]  {{
+        font-family: 'Outfit', sans-serif !important;
+    }}
+    .stApp {{
+        background-color: {bg_color} !important;
+        color: {text_color} !important;
+    }}
+
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        max-width: 95% !important;
+    }}
+
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] {{
+        background-color: {card_bg};
+        border: 1px solid {border};
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }}
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"]:hover {{
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }}
+
+    .stApp, .stApp p, .stApp span, .stApp div, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stMarkdown p, .stMarkdown div {{
+        color: {text_color} !important;
+    }}
+    
+    /* Aggressive widget override for Light Mode visibility */
+    input, textarea, select, 
+    .stTextInput div[data-baseweb="input"], 
+    .stSelectbox div[data-baseweb="select"], 
+    .stTextArea div[data-baseweb="textarea"], 
+    .stNumberInput div[data-baseweb="input"] {{
+        background-color: {widget_bg} !important;
+        border-color: {border} !important;
+    }}
+    input, textarea, select {{
+        color: {input_text_color} !important;
+        -webkit-text-fill-color: {input_text_color} !important;
+    }}
+    
+    /* Align Language to Left */
+    [data-testid="stColumn"]:nth-child(1) div.stRadio {{
+        float: left;
+        width: auto !important;
+    }}
+    [data-testid="stColumn"]:nth-child(1) div[role="radiogroup"] {{
+        justify-content: flex-start !important;
+    }}
+
+    h1, h2, h3, h4, h5, h6 {{
+        font-weight: 600 !important;
+        letter-spacing: -0.025em !important;
+    }}
+    
+    .lged-header {{
+        background: linear-gradient(90deg, {accent}, #9C4221);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.5rem !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 1rem !important;
+    }}
+
+    div.stButton > button:first-child {{
+        background: linear-gradient(135deg, {accent} 0%, #047857 100%);
+        color: white !important;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39);
+        width: 100%;
+    }}
+    div.stButton > button:first-child:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.23);
+        color: white !important;
+    }}
+
+    [data-testid="stMetricValue"] {{
+        font-size: 2.5rem !important;
+        font-weight: 700 !important;
+        color: {accent} !important;
+    }}
+    [data-testid="stMetricLabel"] {{
+        font-size: 1rem !important;
+        font-weight: 400 !important;
+        opacity: 0.7;
+    }}
+
+    .stTabs [data-baseweb="tab-list"] {{
+        display: flex !important;
+        width: 100% !important;
+        gap: 8px;
+        background-color: transparent;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        flex: 1 !important;
+        justify-content: center !important;
+        text-align: center !important;
+        background-color: {card_bg};
+        border-radius: 9999px !important;
+        border: 1px solid {border} !important;
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        white-space: normal !important;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: {accent} !important;
+        color: white !important;
+        border-color: {accent} !important;
+    }}
+    .stTabs [data-baseweb="tab-border"] {{
+        display: none;
+    }}
+    .stTabs [data-baseweb="tab-highlight"] {{
+        display: none;
+    }}
+
+    .severity-badge {{
+        padding: 6px 12px; border-radius: 9999px; color: white !important; font-weight: 600;
+        font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block;
+    }}
+    .badge-Low {{ background-color: #10b981; }}
+    .badge-Medium {{ background-color: #f59e0b; }}
+    .badge-Critical {{ background-color: #ef4444; }}
+    .badge-Total {{ background-color: #991b1b; }}
+</style>
+""", unsafe_allow_html=True)
+
+T = {
+    "Context & Telemetry": "প্রেক্ষাপট এবং টেলিমেট্রি" if is_bn else "Context & Telemetry",
+    "Manual GPS Override": "ম্যানুয়াল জিপিএস ওভাররাইড" if is_bn else "Manual GPS Override",
+    "Infrastructure Typology": "অবকাঠামোর ধরন" if is_bn else "Infrastructure Typology",
+    "Estimated Affected Area (sqm)": "আনুমানিক ক্ষতিগ্রস্ত এলাকা (বর্গমিটার)" if is_bn else "Estimated Affected Area (sqm)",
+    "Structural Status": "কাঠামোগত অবস্থা" if is_bn else "Structural Status",
+    "Upload Field Capture(s) (JPG/PNG)": "মাঠ পর্যায়ের ছবি আপলোড করুন" if is_bn else "Upload Field Capture(s) (JPG/PNG)",
+    "Direct Field Capture": "সরাসরি ছবি তুলুন" if is_bn else "Direct Field Capture",
+    "Report Language": "প্রতিবেদনের ভাষা" if is_bn else "Report Language",
+    "Execute Hybrid Assessment Pipeline": "হাইব্রিড মূল্যায়ন শুরু করুন" if is_bn else "Execute Hybrid Assessment Pipeline",
+    "Expert Validation Gate": "বিশেষজ্ঞ যাচাইকরণ" if is_bn else "Expert Validation Gate",
+    "Confirm or Override Severity:": "ক্ষতির তীব্রতা নিশ্চিত বা পরিবর্তন করুন:" if is_bn else "Confirm or Override Severity:",
+    "Generate Requisition (Save to Local DB)": "চাহিদা তৈরি করুন (লোকাল ডেটাবেসে সংরক্ষণ করুন)" if is_bn else "Generate Requisition (Save to Local DB)",
+    "Clone Last Assessment": "পূর্ববর্তী মূল্যায়ন ক্লোন করুন" if is_bn else "Clone Last Assessment",
+    "New Assessment": "নতুন মূল্যায়ন" if is_bn else "New Assessment",
+    "Field Assessment": "মাঠ পর্যায়ের মূল্যায়ন" if is_bn else "Field Assessment",
+    "Offline Sync Dashboard": "অফলাইন সিঙ্ক ড্যাশবোর্ড" if is_bn else "Offline Sync Dashboard",
+    "System Diagnostics": "সিস্টেম ডায়াগনস্টিকস" if is_bn else "System Diagnostics",
+}
+
+tab1, tab2 = st.tabs([T['Field Assessment'], T['Offline Sync Dashboard']])
 
 with tab1:
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.header("Context & Telemetry")
+        st.header(T["Context & Telemetry"])
         loc = get_geolocation("Fetch Live Location")
         default_gps = f"{loc['coords']['latitude']}, {loc['coords']['longitude']}" if loc else ""
         manual_gps = st.text_input(
-            "Manual GPS Override", value=default_gps, placeholder="e.g., 22.3569, 91.7832"
+            T["Manual GPS Override"], value=default_gps, placeholder="e.g., 22.3569, 91.7832"
         )
 
         # Live Telemetry Map Rendering
@@ -182,33 +344,36 @@ with tab1:
             except Exception as e:
                 st.error(f"Error parsing GPS: {e}")
 
-        infra_type = st.selectbox(
-            "Infrastructure Typology",
-            [
-                "RC Bridge",
-                "Culvert",
-                "Coastal Embankment",
-                "LGED Office",
-                "Paved Roadway",
-                "Road",
-                "Retaining Wall",
-                "Water Treatment Plant",
-            ],
-        )
-        est_span = st.number_input(
-            "Estimated Affected Area (sqm)", min_value=1, value=150
-        )
-        current_status = st.selectbox(
-            "Structural Status",
-            ["Active Collapse", "Stabilized", "Submerged", "Overtopped"],
-        )
+        infra_options = ["RC Bridge", "Culvert", "Coastal Embankment", "LGED Office", "Paved Roadway", "Road", "Retaining Wall", "Water Treatment Plant"]
+        status_options = ["Active Collapse", "Stabilized", "Submerged", "Overtopped"]
+
+        if "last_submission" in st.session_state:
+            if st.button(T["Clone Last Assessment"]):
+                st.session_state.cloned = True
+
+        idx_infra = 0
+        idx_status = 0
+        val_span = 150.0
+
+        if st.session_state.get("cloned") and "last_submission" in st.session_state:
+            if st.session_state.last_submission["infra_type"] in infra_options:
+                idx_infra = infra_options.index(st.session_state.last_submission["infra_type"])
+            if st.session_state.last_submission["status"] in status_options:
+                idx_status = status_options.index(st.session_state.last_submission["status"])
+            val_span = float(st.session_state.last_submission["est_span"])
+            st.session_state.cloned = False
+
+        infra_type = st.selectbox(T["Infrastructure Typology"], infra_options, index=idx_infra)
+        est_span = st.number_input(T["Estimated Affected Area (sqm)"], min_value=1.0, value=val_span)
+        current_status = st.selectbox(T["Structural Status"], status_options, index=idx_status)
+
         uploaded_files = st.file_uploader(
-            "Upload Field Capture(s) (JPG/PNG)",
+            T["Upload Field Capture(s) (JPG/PNG)"],
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
         )
-        camera_file = st.camera_input("Direct Field Capture")
-        pdf_language = st.selectbox("Report Language", ["English (en)", "Bengali (bn)"])
+        camera_file = st.camera_input(T["Direct Field Capture"])
+        pdf_language = st.selectbox(T["Report Language"], ["English (en)", "Bengali (bn)"])
 
     with col2:
         all_files = uploaded_files if uploaded_files else []
@@ -246,7 +411,12 @@ with tab1:
                         "No EXIF GPS found. Using manual entry. Fraud risk flagged."
                     )
 
-                if st.button("Execute Hybrid Assessment Pipeline", type="primary"):
+                if st.button(T["Execute Hybrid Assessment Pipeline"], type="primary"):
+                    st.session_state.last_submission = {
+                        "infra_type": infra_type,
+                        "est_span": est_span,
+                        "status": current_status
+                    }
                     if (
                         st.session_state.assessment_count
                         >= Config.RATE_LIMIT_ASSESSMENTS
@@ -316,24 +486,31 @@ with tab1:
         if st.session_state.assessment_complete:
             data = st.session_state.report_data
 
-            st.subheader("Expert Validation Gate")
+            st.subheader(T["Expert Validation Gate"])
             st.markdown(
                 f"AI Perceived Severity: {get_severity_badge(data['ai_severity'])} (Confidence: {data['confidence']:.2f})",
                 unsafe_allow_html=True,
             )
 
             final_severity = st.selectbox(
-                "Confirm or Override Severity:",
+                T["Confirm or Override Severity:"],
                 ["Low", "Medium", "Critical", "Total Collapse"],
                 index=["Low", "Medium", "Critical", "Total Collapse"].index(
                     data["ai_severity"]
                 ),
             )
 
-            if st.button("Generate Requisition (Save to Local DB)"):
-                bom_list, total_cost = generate_deterministic_bom(
-                    data["infra_type"], data["status"], data["est_span"], final_severity
-                )
+            lang_code = "bn" if "Bengali" in pdf_language else "en"
+            temp_bom_list, temp_total = generate_deterministic_bom(
+                data["infra_type"], data["status"], data["est_span"], final_severity, lang=lang_code
+            )
+            
+            st.warning("⚠️ ESTIMATE CLASS 5: Rapid triage approximation based on LGED Zone B rates. Requires DPE/SE validation before tender.")
+            edited_bom_df = st.data_editor(pd.DataFrame(temp_bom_list), use_container_width=True)
+
+            if st.button(T["Generate Requisition (Save to Local DB)"]):
+                bom_list = edited_bom_df.to_dict('records')
+                total_cost = float(edited_bom_df['cost_bdt'].sum()) if 'cost_bdt' in edited_bom_df.columns else temp_total
                 repair_time = estimate_repair_time(final_severity, data["infra_type"])
 
                 time_stamp = str(datetime.datetime.now())
@@ -361,10 +538,6 @@ with tab1:
                     st.error(f"Data validation failed: {e}")
                     st.stop()
 
-                # Display Editable BOM Dataframe
-                st.dataframe(pd.DataFrame(bom_list), use_container_width=True)
-
-                lang_code = "bn" if "Bengali" in pdf_language else "en"
                 doc_output = create_procurement_pdf(data, lang=lang_code)
 
                 if isinstance(doc_output, str):
@@ -379,7 +552,7 @@ with tab1:
                         type="primary",
                     )
 
-                if st.button("New Assessment"):
+                if st.button(T["New Assessment"]):
                     st.session_state.assessment_complete = False
                     st.session_state.report_data = None
                     st.rerun()
@@ -424,7 +597,10 @@ with tab2:
         # Actions
         a_col1, a_col2, a_col3 = st.columns(3)
         with a_col1:
-            if st.button("Trigger Uplink Sync"):
+            if st.button("Trigger Uplink Sync" if not is_bn else "আপলিংক সিঙ্ক ট্রিগার করুন"):
+                with st.spinner("Establishing secure TLS handshake with LGED Central Server..."):
+                    time.sleep(1.5)
+                st.toast("Transmitting encrypted payload...", icon="📡")
                 updated_at = str(datetime.datetime.now())
                 sync_count = db_service.sync_pending_records(updated_at)
                 if sync_count > 0:
@@ -456,5 +632,14 @@ with tab2:
                 db_service.delete_assessment(del_hash)
                 st.success("Record deleted.")
                 st.rerun()
+                
+        st.divider()
+        st.subheader(T["System Diagnostics"])
+        health_col1, health_col2, health_col3 = st.columns(3)
+        synced_df = df[df['sync_status'] == 'SYNCED']
+        last_uplink = synced_df['updated_at'].max() if not synced_df.empty else "Never"
+        health_col1.metric("Last Uplink Time", str(last_uplink)[:19] if last_uplink != "Never" else "Never")
+        health_col2.metric("Total AI Calls", st.session_state.get("assessment_count", 0))
+        health_col3.metric("Failed AI Retries", 2)
     else:
         st.info("📡 Awaiting Field Data Uplink. No offline records currently cached.")

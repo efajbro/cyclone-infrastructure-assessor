@@ -90,7 +90,7 @@ def calculate_rebar_requirements(infra_type: str, volume_cumec: float) -> int:
 
 
 def generate_deterministic_bom(
-    infra_type: str, status: str, area_sqm: float, severity: str
+    infra_type: str, status: str, area_sqm: float, severity: str, lang: str = "en"
 ) -> Tuple[List[Dict], float]:
     """Generates a BOM applying Severity multipliers and Zone B Rates.
     Uses BNBC 2020 Structural Assessment Criteria for severity multipliers.
@@ -124,17 +124,21 @@ def generate_deterministic_bom(
             if "Cement" in item:
                 cost = qty * RATES_BDT_ZONE_B["opc_cement_bag_50kg"]["rate"]
                 code = RATES_BDT_ZONE_B["opc_cement_bag_50kg"]["code"]
+                desc_en = "Cement (OPC 50kg Bags)"
             elif "Sand" in item:
                 cost = qty * RATES_BDT_ZONE_B["sylhet_sand_cft"]["rate"]
                 code = RATES_BDT_ZONE_B["sylhet_sand_cft"]["code"]
+                desc_en = "Fine Aggregate / Sylhet Sand (cft)"
             elif "Coarse" in item:
                 cost = qty * RATES_BDT_ZONE_B["brick_chips_20mm_cft"]["rate"]
                 code = RATES_BDT_ZONE_B["brick_chips_20mm_cft"]["code"]
+                desc_en = "Coarse Aggregate / 20mm Brick Chips (cft)"
             else:
                 cost = 0
                 code = "UNKNOWN"
+                desc_en = item
 
-            bom.append({"code": code, "item": item, "quantity": qty, "cost_bdt": cost})
+            bom.append({"code": code, "item": desc_en, "quantity": qty, "cost_bdt": cost})
             total_cost += cost
 
         rebar_kg = calculate_rebar_requirements(infra_type, est_volume_cumec)
@@ -229,6 +233,22 @@ def generate_deterministic_bom(
             }
         )
         total_cost += pump_cost
+
+    if lang == "bn":
+        bn_translations = {
+            "Cement (OPC 50kg Bags)": "সিমেন্ট (ওপিসি ৫০ কেজি ব্যাগ)",
+            "Fine Aggregate / Sylhet Sand (cft)": "ফাইন এগ্রিগেট / সিলেট বালি (সিএফটি)",
+            "Coarse Aggregate / 20mm Brick Chips (cft)": "কোর্স এগ্রিগেট / ২০ মিমি ইটের খোয়া (সিএফটি)",
+            "60-Grade Deformed Rebar (kg)": "৬০-গ্রেড ডিফর্মড রড (কেজি)",
+            "Timber Formwork (sqm)": "কাঠের শাটরিং (বর্গমিটার)",
+            "Waterproofing Membrane (sqm)": "ওয়াটারপ্রুফিং মেমব্রেন (বর্গমিটার)",
+            "Temporary Steel Shoring Props": "অস্থায়ী স্টিল শোরিং প্রপস",
+            "175kg Geotextile Sand Bags (Filled)": "১৭৫ কেজি জিওটেক্সটাইল বালির বস্তা (ভর্তি)",
+            "Gabion Wire Mesh (sqm) for Toe Protection": "গ্যাবিয়ন তারের জাল (বর্গমিটার)",
+            "Dewatering Pump Rental (Days)": "পানি নিষ্কাশন পাম্প ভাড়া (দিন)"
+        }
+        for item in bom:
+            item["item"] = bn_translations.get(item["item"], item["item"])
 
     return bom, total_cost
 
