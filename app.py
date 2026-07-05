@@ -316,11 +316,10 @@ with tab1:
             data = st.session_state.report_data
 
             st.subheader("Expert Validation Gate")
-            else:
-                st.markdown(
-                    f"AI Perceived Severity: {get_severity_badge(data['ai_severity'])} (Confidence: {data['confidence']:.2f})",
-                    unsafe_allow_html=True,
-                )
+            st.markdown(
+                f"AI Perceived Severity: {get_severity_badge(data['ai_severity'])} (Confidence: {data['confidence']:.2f})",
+                unsafe_allow_html=True,
+            )
 
             final_severity = st.selectbox(
                 "Confirm or Override Severity:",
