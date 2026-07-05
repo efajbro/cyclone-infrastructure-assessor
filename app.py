@@ -4,6 +4,8 @@ Production-Grade Offline-First Architecture for LGED Cyclone Assessor
 """
 
 import streamlit as st
+from streamlit_js_eval import get_geolocation
+import streamlit.components.v1 as components
 from PIL import Image, ExifTags
 import datetime
 import uuid
@@ -31,6 +33,12 @@ st.markdown(
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    .stApp { background-color: #0e1117; }
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] {
+        background-color: #1f2937;
+        border-radius: 8px;
+        padding: 1rem;
+    }
     .lged-header { color: #006a4e; font-weight: bold; } /* Bangladesh Green */
     .severity-badge {
         padding: 5px 10px; border-radius: 5px; color: white; font-weight: bold;
@@ -50,13 +58,17 @@ if "authenticated" not in st.session_state:
 
 
 def check_password():
-    if (
-        "admin_password" in st.secrets
-        and st.session_state.password_input == st.secrets["admin_password"]
-    ):
-        st.session_state.authenticated = True
-    else:
-        st.error("Incorrect password")
+    try:
+        if (
+            "admin_password" in st.secrets
+            and st.session_state.password_input == st.secrets["admin_password"]
+        ):
+            st.session_state.authenticated = True
+        else:
+            st.error("Incorrect password")
+    except FileNotFoundError:
+        st.error("Security Configuration Missing: secrets.toml not found.")
+        st.stop()
 
 
 if not st.session_state.authenticated:
@@ -75,7 +87,14 @@ if "assessment_count" not in st.session_state:
     st.session_state.assessment_count = 0
 
 db_service = DatabaseService()
-ai_engine = AIEngine(api_key=st.secrets.get("GOOGLE_API_KEY", ""))
+
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+except (FileNotFoundError, KeyError):
+    st.error("Critical: GOOGLE_API_KEY missing from secrets.")
+    st.stop()
+
+ai_engine = AIEngine(api_key=api_key)
 
 
 # Utilities
@@ -134,8 +153,10 @@ with tab1:
     col1, col2 = st.columns([1, 2])
     with col1:
         st.header("Context & Telemetry")
+        loc = get_geolocation("Fetch Live Location")
+        default_gps = f"{loc['coords']['latitude']}, {loc['coords']['longitude']}" if loc else ""
         manual_gps = st.text_input(
-            "Manual GPS Override", placeholder="e.g., 22.3569, 91.7832"
+            "Manual GPS Override", value=default_gps, placeholder="e.g., 22.3569, 91.7832"
         )
 
         # Live Telemetry Map Rendering
@@ -186,14 +207,19 @@ with tab1:
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
         )
+        camera_file = st.camera_input("Direct Field Capture")
         pdf_language = st.selectbox("Report Language", ["English (en)", "Bengali (bn)"])
 
     with col2:
-        if uploaded_files and not st.session_state.assessment_complete:
+        all_files = uploaded_files if uploaded_files else []
+        if camera_file:
+            all_files.append(camera_file)
+
+        if all_files and not st.session_state.assessment_complete:
             # Check file size limit
             images = []
             valid_files = True
-            for f in uploaded_files:
+            for f in all_files:
                 if f.size > Config.MAX_IMAGE_SIZE_MB * 1024 * 1024:
                     st.error(f"File {f.name} exceeds 10MB limit.")
                     valid_files = False
@@ -257,33 +283,39 @@ with tab1:
                         st.session_state.assessment_complete = True
                         st.rerun()
                     except Exception as e:
-                        st.error(
-                            f"Pipeline Failed. Using Offline Heuristics... Log: {e}"
-                        )
-                        # True offline fallback
-                        st.session_state.report_data = {
+                        st.error(f"AI Pipeline Failed. Error: {e}")
+                        st.session_state.ai_failed = True
+                        st.session_state.temp_data = {
                             "gps": gps_location,
                             "exif_verified": bool(exif_gps),
                             "infra_type": infra_type,
                             "est_span": est_span,
                             "status": current_status,
-                            "damage_type": "Manual Entry Required",
-                            "ai_severity": "Medium",
-                            "structural_notes": "Manual Entry Required",
-                            "confidence": 0.0,
-                            "offline_mode": True,
                         }
-                        st.session_state.assessment_complete = True
-                        st.rerun()
+
+        if st.session_state.get("ai_failed") and not st.session_state.assessment_complete:
+            with st.form("manual_override"):
+                st.warning("AI Offline: Manual Entry Required")
+                m_damage = st.text_input("Damage Type (e.g. Shear Failure)")
+                m_sev = st.selectbox("Severity", ["Low", "Medium", "Critical", "Total Collapse"])
+                m_notes = st.text_area("Structural Notes")
+                if st.form_submit_button("Submit Manual Assessment"):
+                    data = st.session_state.temp_data.copy()
+                    data.update({
+                        "damage_type": m_damage,
+                        "ai_severity": m_sev,
+                        "structural_notes": m_notes,
+                        "confidence": 0.0,
+                    })
+                    st.session_state.report_data = data
+                    st.session_state.assessment_complete = True
+                    st.session_state.ai_failed = False
+                    st.rerun()
 
         if st.session_state.assessment_complete:
             data = st.session_state.report_data
 
             st.subheader("Expert Validation Gate")
-            if data.get("offline_mode"):
-                st.warning("AI Pipeline offline. Manual input mode enabled.")
-                data["damage_type"] = st.text_input("Manual Triage Notes / Damage Type:", value=data["damage_type"])
-                data["structural_notes"] = st.text_area("Detailed Structural Notes:", value=data["structural_notes"])
             else:
                 st.markdown(
                     f"AI Perceived Severity: {get_severity_badge(data['ai_severity'])} (Confidence: {data['confidence']:.2f})",
@@ -332,15 +364,19 @@ with tab1:
                 st.dataframe(pd.DataFrame(bom_list), use_container_width=True)
 
                 lang_code = "bn" if "Bengali" in pdf_language else "en"
-                pdf_bytes = create_procurement_pdf(data, lang=lang_code)
+                doc_output = create_procurement_pdf(data, lang=lang_code)
 
-                st.download_button(
-                    "Download Procurement PDF",
-                    data=pdf_bytes,
-                    file_name=f"Requisition_{report_hash}.pdf",
-                    mime="application/pdf",
-                    type="primary",
-                )
+                if isinstance(doc_output, str):
+                    components.html(doc_output, height=600, scrolling=True)
+                    st.info("To save as PDF, right-click the document above and select 'Print', or use Ctrl+P and 'Save as PDF'.")
+                else:
+                    st.download_button(
+                        "Download Procurement PDF",
+                        data=doc_output,
+                        file_name=f"Requisition_{report_hash}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                    )
 
                 if st.button("New Assessment"):
                     st.session_state.assessment_complete = False
