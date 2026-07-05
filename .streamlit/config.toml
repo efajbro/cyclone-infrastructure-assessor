@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#006a4e" # Bangladesh Green
+backgroundColor = "#0e1117" # Professional Dark Blue-Gray
+secondaryBackgroundColor = "#1f2937" # Charcoal widgets
+textColor = "#f9fafb" # Crisp text
+font = "sans serif"
