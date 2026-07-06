@@ -32,110 +32,6 @@ from models import AssessmentRecord
 # Configuration and Initialization
 st.set_page_config(page_title="Infrastructure Assessor", page_icon="🏗️", layout="wide")
 
-
-
-# Authentication
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-
-def check_password():
-    try:
-        if (
-            "admin_password" in st.secrets
-            and st.session_state.password_input == st.secrets["admin_password"]
-        ):
-            st.session_state.authenticated = True
-        else:
-            st.error("Incorrect password")
-    except FileNotFoundError:
-        st.error("Security Configuration Missing: secrets.toml not found.")
-        st.stop()
-
-
-if not st.session_state.authenticated:
-    st.title("🔒 Login Required")
-    st.text_input(
-        "Password", type="password", key="password_input", on_change=check_password
-    )
-    st.stop()
-
-# State Management
-if "assessment_complete" not in st.session_state:
-    st.session_state.assessment_complete = False
-if "report_data" not in st.session_state:
-    st.session_state.report_data = None
-if "assessment_count" not in st.session_state:
-    st.session_state.assessment_count = 0
-
-db_service = DatabaseService()
-
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-except (FileNotFoundError, KeyError):
-    st.error("Critical: GOOGLE_API_KEY missing from secrets.")
-    st.stop()
-
-ai_engine = AIEngine(api_key=api_key)
-
-
-# Utilities
-def get_decimal_from_dms(dms, ref):
-    try:
-        dec = float(dms[0]) + (float(dms[1]) / 60.0) + (float(dms[2]) / 3600.0)
-        if ref in ["S", "W"]:
-            dec = -dec
-        return round(dec, 5)
-    except Exception:
-        return None
-
-
-def extract_exif_gps(image):
-    try:
-        exif = image.getexif()
-        if not exif:
-            return None
-        for tag_id, value in exif.items():
-            tag = ExifTags.TAGS.get(tag_id, tag_id)
-            if tag == "GPSInfo":
-                gps_data = {ExifTags.GPSTAGS.get(t, t): value[t] for t in value}
-                lat = get_decimal_from_dms(
-                    gps_data.get("GPSLatitude"), gps_data.get("GPSLatitudeRef")
-                )
-                lon = get_decimal_from_dms(
-                    gps_data.get("GPSLongitude"), gps_data.get("GPSLongitudeRef")
-                )
-                if lat and lon:
-                    return f"{lat}, {lon}"
-    except Exception:
-        pass  # Handle malformed EXIF data
-    return None
-
-
-def validate_gps(lat: float, lon: float) -> bool:
-    return (Config.LAT_MIN <= lat <= Config.LAT_MAX) and (
-        Config.LON_MIN <= lon <= Config.LON_MAX
-    )
-
-
-def get_severity_badge(severity):
-    cls = f"badge-{severity.split()[0]}"
-    return f'<span class="severity-badge {cls}">{severity}</span>'
-
-
-# Application Interface
-# Keeping the [1, 4, 1] column structure perfectly centers the title.
-header_col1, header_col2, header_col3 = st.columns([1, 4, 1])
-with header_col1:
-    lang_choice = st.radio("LANGUAGE / ভাষা", ["English", "বাংলা"], horizontal=True, label_visibility="collapsed")
-with header_col2:
-    st.markdown(
-        '<h1 class="lged-header" style="text-align: center;">LGED Post-Cyclone Infrastructure Assessor</h1>',
-        unsafe_allow_html=True,
-    )
-
-is_bn = (lang_choice == "বাংলা")
-
 # Ultra-Rich Earthy Theme Injection (Permanent Dark Mode)
 bg_color = "#1A1614"       # Deep earthy obsidian
 card_bg = "#292421"        # Warm dark espresso
@@ -288,6 +184,142 @@ st.markdown(f"""
     .badge-Total {{ background-color: #991b1b; }}
 </style>
 """, unsafe_allow_html=True)
+
+# Authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+
+def check_password():
+    try:
+        if (
+            "admin_password" in st.secrets
+            and st.session_state.password_input == st.secrets["admin_password"]
+        ):
+            st.session_state.authenticated = True
+        else:
+            st.error("Incorrect password")
+    except FileNotFoundError:
+        st.error("Security Configuration Missing: secrets.toml not found.")
+        st.stop()
+
+
+if not st.session_state.authenticated:
+    st.markdown("""
+        <style>
+        .block-container {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            min-height: 80vh !important;
+        }
+        .login-subtitle {
+            text-align: center;
+            color: #F4EFE6;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            margin-bottom: 30px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    login_col1, login_col2, login_col3 = st.columns([1.3, 1, 1.3])
+    with login_col2:
+        try:
+            st.image("kabuli.png", use_container_width=True)
+        except Exception:
+            pass
+        st.markdown('<div class="login-subtitle">LGED Post-Cyclone Infrastructure Assessor</div>', unsafe_allow_html=True)
+        st.markdown('<h2 class="login-header">🔒 Login Required</h2>', unsafe_allow_html=True)
+        st.text_input(
+            "Password", type="password", key="password_input", on_change=check_password
+        )
+    st.stop()
+
+# State Management
+if "assessment_complete" not in st.session_state:
+    st.session_state.assessment_complete = False
+if "report_data" not in st.session_state:
+    st.session_state.report_data = None
+if "assessment_count" not in st.session_state:
+    st.session_state.assessment_count = 0
+
+db_service = DatabaseService()
+
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+except (FileNotFoundError, KeyError):
+    st.error("Critical: GOOGLE_API_KEY missing from secrets.")
+    st.stop()
+
+ai_engine = AIEngine(api_key=api_key)
+
+
+# Utilities
+def get_decimal_from_dms(dms, ref):
+    try:
+        dec = float(dms[0]) + (float(dms[1]) / 60.0) + (float(dms[2]) / 3600.0)
+        if ref in ["S", "W"]:
+            dec = -dec
+        return round(dec, 5)
+    except Exception:
+        return None
+
+
+def extract_exif_gps(image):
+    try:
+        exif = image.getexif()
+        if not exif:
+            return None
+        for tag_id, value in exif.items():
+            tag = ExifTags.TAGS.get(tag_id, tag_id)
+            if tag == "GPSInfo":
+                gps_data = {ExifTags.GPSTAGS.get(t, t): value[t] for t in value}
+                lat = get_decimal_from_dms(
+                    gps_data.get("GPSLatitude"), gps_data.get("GPSLatitudeRef")
+                )
+                lon = get_decimal_from_dms(
+                    gps_data.get("GPSLongitude"), gps_data.get("GPSLongitudeRef")
+                )
+                if lat and lon:
+                    return f"{lat}, {lon}"
+    except Exception:
+        pass  # Handle malformed EXIF data
+    return None
+
+
+def validate_gps(lat: float, lon: float) -> bool:
+    return (Config.LAT_MIN <= lat <= Config.LAT_MAX) and (
+        Config.LON_MIN <= lon <= Config.LON_MAX
+    )
+
+
+def get_severity_badge(severity):
+    cls = f"badge-{severity.split()[0]}"
+    return f'<span class="severity-badge {cls}">{severity}</span>'
+
+
+# Application Interface
+header_col1, header_col2, header_col3 = st.columns([1, 4, 1])
+with header_col1:
+    lang_choice = st.radio("LANGUAGE / ভাষা", ["English", "বাংলা"], horizontal=True, label_visibility="collapsed")
+with header_col2:
+    logo_col1, logo_col2, logo_col3 = st.columns([1, 1.5, 1])
+    with logo_col2:
+        try:
+            st.image("kabuli.png", use_container_width=True)
+        except Exception:
+            pass
+    st.markdown('<div style="text-align: center; color: #F4EFE6; font-size: 0.85rem; margin-top: 5px; margin-bottom: 20px;">LGED Post-Cyclone Infrastructure Assessor</div>', unsafe_allow_html=True)
+
+is_bn = (lang_choice == "বাংলা")
+
+
 
 T = {
     "Context & Telemetry": "প্রেক্ষাপট এবং টেলিমেট্রি" if is_bn else "Context & Telemetry",
