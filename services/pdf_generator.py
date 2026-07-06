@@ -18,6 +18,7 @@ def generate_bengali_html(data: Dict[str, Any]) -> str:
                 .text-center {{ text-align: center; }}
                 .text-right {{ text-align: right; }}
                 .bold {{ font-weight: bold; }}
+                .no-print {{ display: none !important; }}
             }}
             body {{ font-family: 'Noto Sans Bengali', sans-serif; padding: 20px; background-color: white; color: black; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
@@ -33,6 +34,9 @@ def generate_bengali_html(data: Dict[str, Any]) -> str:
         </style>
     </head>
     <body>
+        <div class="no-print" style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #006a4e; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">ডাউনলোড / প্রিন্ট করুন</button>
+        </div>
         <div class="header">জরুরী সংগ্রহ ও চাহিদা প্রতিবেদন</div>
         <div class="sub-header">জোন বি: চট্টগ্রাম বিভাগ - ঘূর্ণিঝড় পরবর্তী ট্রায়াজ</div>
         

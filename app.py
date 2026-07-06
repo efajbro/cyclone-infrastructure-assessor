@@ -30,7 +30,7 @@ from lged_knowledge import generate_deterministic_bom, estimate_repair_time
 from models import AssessmentRecord
 
 # Configuration and Initialization
-st.set_page_config(page_title="Infrastructure Assessor", page_icon="🏗️", layout="wide")
+st.set_page_config(page_title="Kabuliwala", page_icon="kabuli.png", layout="wide")
 
 # Ultra-Rich Earthy Theme Injection (Permanent Dark Mode)
 bg_color = "#1A1614"       # Deep earthy obsidian
