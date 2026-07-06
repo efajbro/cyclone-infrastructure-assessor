@@ -276,18 +276,38 @@ def extract_exif_gps(image):
         exif = image.getexif()
         if not exif:
             return None
-        for tag_id, value in exif.items():
-            tag = ExifTags.TAGS.get(tag_id, tag_id)
-            if tag == "GPSInfo":
-                gps_data = {ExifTags.GPSTAGS.get(t, t): value[t] for t in value}
-                lat = get_decimal_from_dms(
-                    gps_data.get("GPSLatitude"), gps_data.get("GPSLatitudeRef")
-                )
-                lon = get_decimal_from_dms(
-                    gps_data.get("GPSLongitude"), gps_data.get("GPSLongitudeRef")
-                )
-                if lat and lon:
-                    return f"{lat}, {lon}"
+        
+        # In modern Pillow, GPSInfo is an IFD offset. 
+        # We must use get_ifd to actually retrieve the dictionary.
+        try:
+            gps_ifd = exif.get_ifd(ExifTags.IFD.GPSInfo)
+            if gps_ifd:
+                gps_data = {ExifTags.GPSTAGS.get(t, t): gps_ifd[t] for t in gps_ifd}
+                
+                # Check for required latitude and longitude data
+                if "GPSLatitude" in gps_data and "GPSLongitude" in gps_data:
+                    lat = get_decimal_from_dms(
+                        gps_data.get("GPSLatitude"), gps_data.get("GPSLatitudeRef", "N")
+                    )
+                    lon = get_decimal_from_dms(
+                        gps_data.get("GPSLongitude"), gps_data.get("GPSLongitudeRef", "E")
+                    )
+                    if lat is not None and lon is not None:
+                        return f"{lat}, {lon}"
+        except AttributeError:
+            # Fallback for very old Pillow versions where GPSInfo was a dict directly
+            for tag_id, value in exif.items():
+                tag = ExifTags.TAGS.get(tag_id, tag_id)
+                if tag == "GPSInfo" and isinstance(value, dict):
+                    gps_data = {ExifTags.GPSTAGS.get(t, t): value[t] for t in value}
+                    lat = get_decimal_from_dms(
+                        gps_data.get("GPSLatitude"), gps_data.get("GPSLatitudeRef", "N")
+                    )
+                    lon = get_decimal_from_dms(
+                        gps_data.get("GPSLongitude"), gps_data.get("GPSLongitudeRef", "E")
+                    )
+                    if lat is not None and lon is not None:
+                        return f"{lat}, {lon}"
     except Exception:
         pass  # Handle malformed EXIF data
     return None
