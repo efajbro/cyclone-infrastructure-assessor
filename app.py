@@ -261,9 +261,28 @@ ai_engine = AIEngine(api_key=api_key)
 
 
 # Utilities
+import math
+
 def get_decimal_from_dms(dms, ref):
     try:
-        dec = float(dms[0]) + (float(dms[1]) / 60.0) + (float(dms[2]) / 3600.0)
+        def to_float(val):
+            # Handle IFDRational or tuple like (num, den)
+            if hasattr(val, "numerator") and hasattr(val, "denominator"):
+                if val.denominator == 0: return float('nan')
+                return float(val.numerator) / float(val.denominator)
+            elif isinstance(val, tuple) and len(val) == 2:
+                if val[1] == 0: return float('nan')
+                return float(val[0]) / float(val[1])
+            return float(val)
+
+        d0 = to_float(dms[0])
+        d1 = to_float(dms[1])
+        d2 = to_float(dms[2])
+        
+        if math.isnan(d0) or math.isnan(d1) or math.isnan(d2):
+            return None
+
+        dec = d0 + (d1 / 60.0) + (d2 / 3600.0)
         if ref in ["S", "W"]:
             dec = -dec
         return round(dec, 5)
