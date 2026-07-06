@@ -14,7 +14,7 @@
   <p><i>Engineered for the Bangladesh Local Government Engineering Department (LGED) & CRELIC Protocols</i></p>
 
   <p>
-    <a href="[INSERT_LIVE_DEMO_URL_HERE]"><b>View Live System Demonstration</b></a> 
+    <a href="[https://kabuliwala.streamlit.app/]"><b>View Live System Demonstration</b></a> 
   </p>
 </div>
 
