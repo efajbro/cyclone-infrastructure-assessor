@@ -14,8 +14,7 @@
   <p><i>Engineered for the Bangladesh Local Government Engineering Department (LGED) & CRELIC Protocols</i></p>
 
   <p>
-    <a href="[INSERT_LIVE_DEMO_URL_HERE]"><b>View Live System Demonstration</b></a> | 
-    <a href="[INSERT_DEMO_VIDEO_URL_HERE]"><b>View Technical Pitch Video</b></a>
+    <a href="[INSERT_LIVE_DEMO_URL_HERE]"><b>View Live System Demonstration</b></a> 
   </p>
 </div>
 
@@ -37,6 +36,7 @@ The platform explicitly decouples AI visual perception from engineering cost cal
 *   **Deterministic BOM Engine:** Applies the historical LGED Schedule of Rates (SOR 2023 - Zone B) and BNBC-2020 volumetric heuristics to generate rapid Class-5 material estimates (e.g., routing Rebar at 114.00 BDT/kg and Geotextile Sandbags at 450.00 BDT/bag).
 *   **Offline-First Vault & CRELIC Sync:** Built on an embedded SQLite instance to queue records during telecommunication blackouts. Features a thin-sync protocol to batch-export structured JSON/CSV data directly to the Climate Resilient Local Infrastructure Centre (CRELIC) databases upon network restoration.
 *   **Native Bilingual Generation:** Exports procurement-ready D-Form PDFs in both English and Bengali, utilizing localized HTML-to-PDF rendering to accurately preserve complex Bengali text shaping (যুক্তাক্ষর).
+<img width="4700" height="6650" alt="Part a pdf" src="https://github.com/user-attachments/assets/a26a3947-2de9-4bb1-92ea-a81c6141d04b" />
 
 ## 3. Technology Stack
 
